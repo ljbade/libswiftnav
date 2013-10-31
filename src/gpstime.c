@@ -26,12 +26,12 @@ gps_time_t normalize_gps_time(gps_time_t t)
 {
   while(t.tow < 0) {
     t.tow += 3600*24*7;
-    t.wn += 1;
+    t.wn -= 1; // LB: Bug fix, wrong sign
   }
 
   while(t.tow > 3600*24*7) {
     t.tow -= 3600*24*7;
-    t.wn -= 1;
+    t.wn += 1; // LB: Bug fix, wrong sign
   }
 
   return t;

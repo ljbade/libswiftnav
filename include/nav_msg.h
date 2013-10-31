@@ -35,6 +35,10 @@ typedef struct {
   u32 frame_words[3][8];
   u8 next_subframe_id;
   u8 inverted;
+
+  u16 tlm;
+  u8 integrity_status_flag;
+  u8 alert_flag, anti_spoof_flag;
 } nav_msg_t;
 
 void nav_msg_init(nav_msg_t *n);

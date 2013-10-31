@@ -1,0 +1,60 @@
+Changes by Leith Bade:
+NOTE: Most code changes are marked with a '// LB:' comment
+
+31/10/2013:
+ephemeris.h:
+* Add new members used in updated nav_msg.c
+* Changed const of calc_sat_pos for ephemeris age updating
+* Add definition for new update_eph_age() in ephemeris.c
+
+nav_msg.h:
+* Add new members used in updated nav_msg.c
+
+track.h:
+* Added obs_n to fix compile error in piksi_firmware
+
+ephemeris.c:
+* calc_sat_pos():
+  * Changed const of ephemeris for ephemeris age updating
+  * Added some notes on changes TODO for QZSS
+  * Added check that the ephemeris is valid
+  * Updated age check to use update_eph_age() - uses the new update_eph_age()
+  * Moved relativistic constant, speed of light constant and pi constant from GPS ICS to the #define NAV_* at the top
+* update_eph_age():
+  * Add update_eph_age() to update the ephemeris age and check if it is stale - uses the new fit interval calulcated in nav_msg.c/
+
+gps_time.c:
+* normalize_gps_time():
+  * Fixed a sign bug with week number
+
+nav_msg.c:
+* Tidied code and comment formatting
+* Lots of new comments and TODOs
+* Added stuff on QZSS TODO
+* Added forward definitions for nav_parity() and parity()
+* nav_msg_update():
+  * Moved the #define SUBFRAME_START_BUFFER_OFFSET to the top
+  * Added parity checks when checking the current TLM word, previous TLM word, and HOW word - should make it more robust to errors
+  * Changed the TOW check previous subframe not next for matching TOW counts - should improve TTFF
+  * Extract the TLM and flags from the TLM and HOW words, store them in the nav_msg_t (alert flag is important to check when doing position solution - this is still TODO)
+  * They are the alert flag, anti-spoof flag, and integrity status flag
+* process_subframe():
+  * Add parity check on word 1
+  * Extract P or C/A on L2 flag
+  * Extract URA index and calculate URA
+  * Extract full SV health word
+  * Set healthy based on bad nav data bit, bad L1C signal or maintenance, large URA
+  * Extract IODC, and both IODEs
+  * Compare IODC and IODEs to ensure ephemeris is consistent
+  * Extract L2P data flag
+  * Extract fit interval flag
+  * Extract AODO for NMCT
+  * Add flag to detect a new upload using t_oe as mentioned in the ICD
+  * Use the fit interval flag and IODC to calculate the ephemeris valid curve fit inverval
+  * Calculate the start time of the curve fit interval so we can calculate the ephemeris age in ephemeris.c
+
+prns.c:
+  * Added TODO to expand the GPS PRNs to the new Block III ones (33-63)
+
+NOTE: I have only compiled, not tested this code
+It needs to be checked carefully. Most likely bugs are the two changes to TLM/HOW parity and using previous TLM instead of next

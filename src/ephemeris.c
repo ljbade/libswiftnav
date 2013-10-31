@@ -16,12 +16,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define NAV_OMEGAE_DOT 7.2921151467e-005
-#define NAV_GM 3.986005e14
+#define NAV_OMEGAE_DOT  7.2921151467e-5
+#define NAV_GM          3.986005e14
+#define NAV_F          -4.442807633e-10
+#define NAV_C           2.99792458e8
+#define NAV_PI          3.1415926535898 // LB: TODO: Is it OK to use C sin()? ICD says to make sure to use this exact PI value
 
 int calc_sat_pos(double pos[3], double vel[3],
              double *clock_err, double *clock_rate_err,
-             const ephemeris_t *ephemeris,
+             ephemeris_t *ephemeris,
              gps_time_t tot)
 {
   /****************************************************************************
@@ -35,6 +38,7 @@ int calc_sat_pos(double pos[3], double vel[3],
    *  sv: Satellite vehicle number
    *    Eph: Ephemeris data structure located within channel structure
    ****************************************************************************/
+  // LB: TODO: QZSS has different algorithm
 
   double tempd1 = 0, tempd2, tempd3;
   double tdiff;
@@ -49,6 +53,17 @@ int calc_sat_pos(double pos[3], double vel[3],
   double x, x_dot, y, y_dot;  // position in orbital plan and first derivatives
   double om, om_dot;    // omega and first derivatives
 
+  // LB: Check that ephemeris is valid
+  if (!ephemeris->valid)
+    printf(" ERROR: using invalid ephemeris.\n");
+
+  // If tdiff is too large our ephemeris isn't valid, maybe we want to wait until we get a
+  // new one? At least let's warn the user.
+  // LB: Caculate the age of the emphemeris
+  update_eph_age(ephemeris, tot);
+
+  if (ephemeris->stale)
+    printf(" WARNING: using a stale emphemeris.\n");
 
   // Satellite clock terms
   // Seconds from clock data reference time (toc)
@@ -59,12 +74,6 @@ int calc_sat_pos(double pos[3], double vel[3],
 
   // Seconds from the time from ephemeris reference epoch (toe)
   tdiff = gpsdifftime(tot, ephemeris->toe);
-
-  // If tdiff is too large our ephemeris isn't valid, maybe we want to wait until we get a
-  // new one? At least let's warn the user.
-  // TODO: this doesn't exclude ephemerides older than a week so could be made better.
-  if (abs(tdiff) > 4*3600)
-    printf(" WARNING: using ephemeris older (or newer!) than 4 hours.\n");
 
   // Calculate position per IS-GPS-200D p 97 Table 20-IV
   a = ephemeris->sqrta * ephemeris->sqrta;  // [m] Semi-major axis
@@ -82,7 +91,7 @@ int calc_sat_pos(double pos[3], double vel[3],
   ea_dot = ma_dot / tempd1;
 
   // Relativistic correction term
-  einstein = -4.442807633E-10 * ephemeris->ecc * ephemeris->sqrta * sin (ea);
+  einstein = NAV_F * ephemeris->ecc * ephemeris->sqrta * sin (ea);
 
   // Begin calc for True Anomaly and Argument of Latitude
   tempd2 = sqrt (1.0 - ephemeris->ecc * ephemeris->ecc);
@@ -155,4 +164,13 @@ double predict_range(double rx_pos[3],
   return vector_norm(3, temp);
 }
 
+void update_eph_age(ephemeris_t *ephemeris,
+                    gps_time_t tot)
+{
+  // LB: Caculate the age of the emphemeris
+  ephemeris->age = gpsdifftime(ephemeris->toe, tot);
+
+  // LB: Check if the ephemeris age is past the end of the fit interval, if it is then mark as stale
+  ephemeris->stale = ephemeris->age > ephemeris->fit_interval;
+}
 
