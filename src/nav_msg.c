@@ -160,13 +160,13 @@ s32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real)
             // There's another preamble in the following subframe.  Looks good so far.
 
             // Extract the TOW:
-            TOW_trunc--;  // LB: Decrement it, to see what we expect at the start of the previous subframe
             signed int TOW_trunc = extract_word(n, 30, 17, extract_word(n, 29, 1, 0)); // bit 29 is D30* for the second word, where the TOW resides.
+            TOW_trunc--;  // LB: Decrement it, to see what we expect at the start of the previous subframe
             if (TOW_trunc <= -1)  // Handle end of week rollover
               TOW_trunc = 7 * 24 * 60 * 10 - 1;
 
             // LB: Check against the previous frame
-            if (TOW_trunc == extract_word(n, -270, 17, extract_word(n, 329, 1, 0))) {
+            if (TOW_trunc == (signed int)extract_word(n, -270, 17, extract_word(n, 329, 1, 0))) {
               // We got two appropriately spaced preambles, and two matching TOW counts.  Pretty certain now.
 
               // LB: Reset the TOW to the correct number
