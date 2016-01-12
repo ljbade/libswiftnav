@@ -790,16 +790,19 @@ void calc_navigation_measurement(u8 n_channels, const channel_measurement_t *mea
      * tracking loop parameters. This will be used to compute the pseudorange. */
     nav_meas[i]->tot.tow = 1e-3 * meas[i]->time_of_week_ms;
     nav_meas[i]->tot.tow += meas[i]->code_phase_chips / 1.023e6;
-    nav_meas[i]->tot.tow += (nav_time_tc - meas[i]->receiver_time)
-                            * meas[i]->code_phase_rate / 1.023e6;
     /* For now use the week number from the ephemeris. */
     /* TODO: Should we use a more reliable source for the week number? */
     gps_time_match_weeks(&nav_meas[i]->tot, &ephemerides[i]->toe);
 
     /* Compute the carrier phase measurement. */
-    nav_meas[i]->carrier_phase = meas[i]->carrier_phase;
-    nav_meas[i]->carrier_phase += (nav_time_tc - meas[i]->receiver_time)
-                                  * meas[i]->carrier_freq;
+    nav_meas[i]->raw_carrier_phase = meas[i]->carrier_phase;
+
+    /* This adjustment corrects for taking measurements at different time instants
+      on the different tracking channels. nav_time_tc will become the common
+      measurement time. */
+    double dt = nav_time_tc - meas[i]->receiver_time;
+    nav_meas[i]->tot.tow += dt * meas[i]->code_phase_rate / 1.023e6;
+    nav_meas[i]->raw_carrier_phase += dt * meas[i]->carrier_freq;
 
     /* For raw Doppler we use the instantaneous carrier frequency from the
      * tracking loop. */
@@ -847,6 +850,7 @@ void calc_navigation_measurement(u8 n_channels, const channel_measurement_t *mea
                                + clock_err[i] * GPS_C;
     nav_meas[i]->doppler = nav_meas[i]->raw_doppler
                            + clock_rate_err[i] * GPS_L1_HZ;
+                           // TODO also correct carrier phase
 
     /* We also apply the clock correction to the time of transmit. */
     nav_meas[i]->tot.tow -= clock_err[i];
@@ -898,7 +902,7 @@ u8 tdcp_doppler(u8 n_new, navigation_measurement_t *m_new,
       /* Calculate raw Doppler from time difference of carrier phase. */
       /* TODO: check that using difference of TOTs here is a valid
        * approximation. */
-      m_corrected[n].raw_doppler = (m_new[i].carrier_phase - m_old[j].carrier_phase)
+      m_corrected[n].raw_doppler = (m_new[i].raw_carrier_phase - m_old[j].raw_carrier_phase)
                                     / gpsdifftime(&m_new[i].tot, &m_old[j].tot);
       /* Re-apply the same correction to the raw Doppler to get the corrected Doppler. */
       m_corrected[n].doppler = m_corrected[n].raw_doppler + dopp_corr;
